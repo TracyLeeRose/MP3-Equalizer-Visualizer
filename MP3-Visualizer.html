@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amplitude Depth 3D Plot MP3 Player</title>
+    <style>
+        body { font-family: sans-serif; background-color: #1a1a1a; color: #e0e0e0; display: flex; margin: 0; overflow: hidden; min-height: 100vh; box-sizing: border-box; }
+        #sidebar { width: 200px; background-color: #222; padding: 20px 15px; height: 100vh; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.3); z-index: 20; flex-shrink: 0; display: flex; flex-direction: column; }
+        #sidebar h3 { margin-top: 0; margin-bottom: 15px; color: #00ddc6; text-align: center; font-size: 1.1em; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        #unselectAllButton {
+            display: block;
+            width: calc(100% - 10px); /* Adjust width slightly */
+            padding: 8px 10px;
+            margin-bottom: 15px; /* Space below button */
+            margin-left: 5px; /* Center it a bit */
+            margin-right: 5px;
+            background-color: #555;
+            color: #e0e0e0;
+            border: 1px solid #777;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em; /* Reduced font size */
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+        #unselectAllButton:hover {
+            background-color: #666;
+        }
+        .checkbox-group label[title]:hover { position: relative; }
+        /* Reduced font size for labels */
+        .checkbox-group label { display: block; margin-bottom: 10px; cursor: pointer; color: #ccc; font-size: 0.85em; transition: color 0.2s ease; }
+        .checkbox-group label:hover { color: #fff; }
+        /* Style for italic label */
+        .italic-label { font-style: italic; }
+        .checkbox-group input[type="checkbox"] { margin-right: 8px; vertical-align: middle; cursor: pointer; appearance: none; background-color: #444; border: 1px solid #666; width: 14px; height: 14px; position: relative; top: -1px; }
+        .checkbox-group input[type="checkbox"]:checked { background-color: #00ddc6; border-color: #00aa9b; }
+        .checkbox-group input[type="checkbox"]:checked::after { content: ''; display: block; width: 6px; height: 6px; background: #1a1a1a; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        #mainContent { flex-grow: 1; display: flex; flex-direction: column; height: 100vh; position: relative; }
+        #topControls { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 10px 0; z-index: 10; position: relative; }
+        h1 { margin-top: 5px; margin-bottom: 10px; color: #00ddc6; text-shadow: 0 0 5px #00ddc6; text-align: center; font-size: 1.8em; }
+        input[type="file"] { margin-bottom: 10px; padding: 8px 12px; border: 1px solid #444; border-radius: 4px; background-color: #333; color: #e0e0e0; cursor: pointer; transition: background-color 0.2s ease; max-width: 300px; }
+        input[type="file"]:hover { background-color: #454545; }
+        input[type="file"]::file-selector-button { padding: 6px 10px; border: none; border-radius: 3px; background-color: #008b8b; color: #ffffff; cursor: pointer; margin-right: 10px; transition: background-color 0.2s ease; }
+        input[type="file"]::file-selector-button:hover { background-color: #00aaaa; }
+        audio { width: 80%; max-width: 500px; margin-bottom: 10px; filter: invert(1) hue-rotate(180deg); }
+        #toggleRotation { padding: 8px 16px; font-size: 14px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 4px; margin-bottom: 10px; }
+        #toggleRotation:hover { background-color: #45a049; }
+        #toggleRotation.stopped { background-color: #f44336; }
+        #toggleRotation.stopped:hover { background-color: #d32f2f; }
+        #visualizerContainer { width: 100%; flex-grow: 1; display: flex; min-height: 350px; position: absolute; top: 0; left: 0; height: 100%; z-index: 1; }
+        #visualizerCanvas { display: block; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h3>Frequency Control</h3>
+        <div class="checkbox-group">
+            <button id="unselectAllButton">Unselect All</button>
+            <label title="Deeply cut 100Hz - 400Hz range (audio output)">
+                <input type="checkbox" name="freqControl" value="mute_human"> Mute Human 100-400hz
+            </label>
+            <label title="Highlight 100Hz - 400Hz range in hot pink (visual only)">
+                <input type="checkbox" name="freqControl" value="highlight_human"> Highlight 100-400hz
+            </label>
+            <label title="Deeply cut 800Hz - 1500Hz range (audio output)">
+                <input type="checkbox" name="freqControl" value="mute_higher_human"> Mute Higher 800-1500hz
+            </label>
+            <label title="Highlight 800Hz - 1500Hz range in yellow (visual only)">
+                <input type="checkbox" name="freqControl" value="highlight_higher_human"> Highlight 800-1500hz
+            </label>
+            <label title="Deeply cut 1500Hz - 5000Hz range (audio output)">
+                <input type="checkbox" name="freqControl" value="mute_presents"> Mute Presents 1500-5Khz
+            </label>
+            <label title="Highlight 1500Hz - 5000Hz range in bright orange (visual only)">
+                <input type="checkbox" name="freqControl" value="highlight_presents"> Highlight 1500-5Khz
+            </label>
+            <label title="Deeply cut 5000Hz - 8000Hz range (audio output)" class="italic-label">
+                <input type="checkbox" name="freqControl" value="mute_5k_8k"> Mute 5kHz-8kHz
+            </label>
+            <label title="Deeply cut 8000Hz - 12000Hz range (audio output)">
+                <input type="checkbox" name="freqControl" value="mute_remainder"> Mute 8K-12Khz
+            </label>
+            <label title="Highlight 8000Hz - 12000Hz range in bright yellow (visual only)">
+                <input type="checkbox" name="freqControl" value="highlight_remainder"> Highlight 8K-12Khz
+            </label>
+            <label title="Deeply cut 12000Hz - 20000Hz range (audio output)">
+                <input type="checkbox" name="freqControl" value="mute_remaining"> Mute Deep Cut 12K-20Khz
+            </label>
+            <label title="Highlight 12000Hz - 20000Hz range in orange (visual only)">
+                <input type="checkbox" name="freqControl" value="highlight_remaining"> Highlight 12K-20Khz
+            </label>
+        </div>
+    </div>
+    <div id="mainContent">
+        <div id="topControls">
+            <h1>Amplitude Depth 3D Plot</h1>
+            <input type="file" id="fileInput" accept="audio/mp3, audio/wav, audio/ogg" />
+            <audio id="audioPlayer" controls></audio>
+            <button id="toggleRotation">Stop Rotation</button>
+        </div>
+        <div id="visualizerContainer">
+            <canvas id="visualizerCanvas"></canvas>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const canvas = document.getElementById('visualizerCanvas');
+        const container = document.getElementById('visualizerContainer');
+        const toggleRotationButton = document.getElementById('toggleRotation');
+        const frequencyControlCheckboxes = document.querySelectorAll('input[name="freqControl"]');
+        const unselectAllButton = document.getElementById('unselectAllButton'); // Get the new button
+
+        let audioContext;
+        let analyser;
+        let source;
+        let frequencyData;
+        let humanFilter, higherHumanFilter, presentsFilter, spliceFilter, remainderFilter, remainingFilter; // Added spliceFilter
+
+        let scene, camera, renderer, points, controls;
+        let axisLinesGroup, axisLabelsGroup;
+
+        const FFT_SIZE = 2048;
+        const NUM_POINTS = FFT_SIZE / 2;
+        const SMOOTHING = 0.8;
+        const POINT_SIZE = 1.0;
+        const AXIS_LENGTH = 100;
+        const CAMERA_Z = 150;
+        const Z_AMPLITUDE_SCALING = 1.0;
+
+        const HUMAN_HIGHLIGHT_COLOR = new THREE.Color(0xff69b4); // Hot pink
+        const HIGHER_HUMAN_HIGHLIGHT_COLOR = new THREE.Color(0xffff00); // Yellow
+        const PRESENTS_HIGHLIGHT_COLOR = new THREE.Color(0xff4500); // Bright orange
+        // No highlight for 5k-8k, but keep definition
+        const REMAINDER_HIGHLIGHT_COLOR = new THREE.Color(0xffff00); // Bright yellow
+        const REMAINING_HIGHLIGHT_COLOR = new THREE.Color(0xffa500); // Orange (Changed from yellow)
+
+        const HUMAN_VOICE_MIN_HZ = 100;
+        const HUMAN_VOICE_MAX_HZ = 400;
+        const HIGHER_HUMAN_VOICE_MIN_HZ = 800;
+        const HIGHER_HUMAN_VOICE_MAX_HZ = 1500;
+        const PRESENTS_MIN_HZ = 1500;
+        const PRESENTS_MAX_HZ = 5000;
+        const SPLICE_MIN_HZ = 5000; // New range
+        const SPLICE_MAX_HZ = 8000;  // New range
+        const REMAINDER_MIN_HZ = 8000;
+        const REMAINDER_MAX_HZ = 12000;
+        const REMAINING_MIN_HZ = 12000;
+        const REMAINING_MAX_HZ = 20000;
+
+        let isRotating = true;
+        let activeControls = new Set();
+
+        function init() {
+            setupAudioContext();
+            setupThreeJS();
+            setupEventListeners();
+            updateFrequencyControl();
+            animate();
+        }
+
+        function setupAudioContext() {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) {
+                alert("Web Audio API is not supported in this browser.");
+                return;
+            }
+            audioContext = new AudioContext({ latencyHint: 'interactive' });
+
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = FFT_SIZE;
+            analyser.smoothingTimeConstant = SMOOTHING;
+            analyser.minDecibels = -100;
+            analyser.maxDecibels = -10;
+
+            humanFilter = audioContext.createBiquadFilter();
+            humanFilter.type = 'allpass';
+            humanFilter.frequency.value = 1000;
+            humanFilter.Q.value = 1;
+
+            higherHumanFilter = audioContext.createBiquadFilter();
+            higherHumanFilter.type = 'allpass';
+            higherHumanFilter.frequency.value = 1000;
+            higherHumanFilter.Q.value = 1;
+
+            presentsFilter = audioContext.createBiquadFilter();
+            presentsFilter.type = 'allpass';
+            presentsFilter.frequency.value = 1000;
+            presentsFilter.Q.value = 1;
+
+            // Create the new splice filter
+            spliceFilter = audioContext.createBiquadFilter();
+            spliceFilter.type = 'allpass';
+            spliceFilter.frequency.value = 1000; // Default
+            spliceFilter.Q.value = 1; // Default
+
+            remainderFilter = audioContext.createBiquadFilter();
+            remainderFilter.type = 'allpass';
+            remainderFilter.frequency.value = 1000;
+            remainderFilter.Q.value = 1;
+
+            remainingFilter = audioContext.createBiquadFilter();
+            remainingFilter.type = 'allpass';
+            remainingFilter.frequency.value = 1000;
+            remainingFilter.Q.value = 1;
+
+            frequencyData = new Uint8Array(analyser.frequencyBinCount);
+        }
+
+        function setupThreeJS() {
+            scene = new THREE.Scene();
+            const aspectRatio = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+            camera.position.set(0, AXIS_LENGTH * 0.5, CAMERA_Z);
+            camera.lookAt(0, AXIS_LENGTH * 0.2, 0);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
+            setupAxes();
+            const initialGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(NUM_POINTS * 3);
+            const colors = new Float32Array(NUM_POINTS * 3);
+            initialGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+            initialGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+            const initialMaterial = new THREE.PointsMaterial({ size: POINT_SIZE, vertexColors: true });
+            points = new THREE.Points(initialGeometry, initialMaterial);
+            scene.add(points);
+            if (typeof THREE.OrbitControls !== 'undefined') {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.target.set(0, AXIS_LENGTH * 0.2, 0);
+                controls.minDistance = 20;
+                controls.maxDistance = CAMERA_Z * 2.5;
+                controls.maxPolarAngle = Math.PI * 0.85;
+            } else {
+                console.warn("OrbitControls not loaded.");
+            }
+            window.addEventListener('resize', onWindowResize, false);
+            onWindowResize();
+        }
+
+        function createLabel(text, color, position, size = 24, width = 128, height = 32) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = width;
+            canvas.height = height;
+            context.font = `bold ${size}px Arial`;
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.shadowColor = "rgba(0, 0, 0, 0.7)";
+            context.shadowOffsetX = 1;
+            context.shadowOffsetY = 1;
+            context.shadowBlur = 2;
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true, sizeAttenuation: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(width / 5, height / 5, 1.0);
+            sprite.position.copy(position);
+            return sprite;
+        }
+
+        function setupAxes() {
+            axisLinesGroup = new THREE.Group();
+            axisLabelsGroup = new THREE.Group();
+            const halfAxis = AXIS_LENGTH / 2;
+            const lineMaterialX = new THREE.LineBasicMaterial({ color: 0xff6666, linewidth: 2 });
+            const lineMaterialY = new THREE.LineBasicMaterial({ color: 0x66ff66, linewidth: 2 });
+            const lineMaterialZ = new THREE.LineBasicMaterial({ color: 0x6666ff, linewidth: 2 });
+            const xAxisGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-halfAxis, 0, 0), new THREE.Vector3(halfAxis, 0, 0)]);
+            axisLinesGroup.add(new THREE.Line(xAxisGeo, lineMaterialX));
+            const yAxisGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, AXIS_LENGTH, 0)]);
+            axisLinesGroup.add(new THREE.Line(yAxisGeo, lineMaterialY));
+            const zAxisGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -halfAxis * Z_AMPLITUDE_SCALING), new THREE.Vector3(0, 0, halfAxis * 0.2)]);
+            axisLinesGroup.add(new THREE.Line(zAxisGeo, lineMaterialZ));
+            scene.add(axisLinesGroup);
+            axisLabelsGroup.add(createLabel('Frequency (Log)', '#ff8888', new THREE.Vector3(0, -18, 0), 20, 150));
+            axisLabelsGroup.add(createLabel('Amplitude', '#88ff88', new THREE.Vector3(-halfAxis - 20, AXIS_LENGTH / 2, 0), 20, 120));
+            axisLabelsGroup.add(createLabel('Depth (Loudness)', '#8888ff', new THREE.Vector3(0, AXIS_LENGTH/2 , -halfAxis * Z_AMPLITUDE_SCALING - 10), 18, 180));
+            const freqMarkers = [
+                { hz: 20, label: '20Hz', pos: -halfAxis + 5 },
+                { hz: 200, label: '200Hz', pos: -halfAxis * 0.6 },
+                { hz: 1000, label: '1kHz', pos: -halfAxis * 0.2 },
+                { hz: 5000, label: '5kHz', pos: halfAxis * 0.2 },
+                 { hz: 8000, label: '8kHz', pos: halfAxis * 0.4 }, // Added 8kHz marker roughly
+                { hz: 20000, label: '20kHz', pos: halfAxis - 5 }
+            ];
+            freqMarkers.forEach(m => {
+                axisLabelsGroup.add(createLabel(m.label, '#ffcccc', new THREE.Vector3(m.pos, -5, 0), 14, 64));
+            });
+            axisLabelsGroup.add(createLabel('Bass', '#dddddd', new THREE.Vector3(-halfAxis * 0.75, -30, 0), 14, 96));
+            axisLabelsGroup.add(createLabel('Mids', '#dddddd', new THREE.Vector3(0, -30, 0), 14, 64));
+            axisLabelsGroup.add(createLabel('Highs', '#dddddd', new THREE.Vector3(halfAxis * 0.75, -30, 0), 14, 64));
+            axisLabelsGroup.add(createLabel('Loud', '#ccffcc', new THREE.Vector3(8, AXIS_LENGTH, 0), 16, 64));
+            axisLabelsGroup.add(createLabel('Quiet', '#ccffcc', new THREE.Vector3(8, 5, 0), 16, 64));
+            axisLabelsGroup.add(createLabel('Forward', '#ccccff', new THREE.Vector3(0, 0, -halfAxis * Z_AMPLITUDE_SCALING - 5), 14, 80));
+            axisLabelsGroup.add(createLabel('Back', '#ccccff', new THREE.Vector3(0, 0, halfAxis * 0.2 + 5), 14, 64));
+            scene.add(axisLabelsGroup);
+        }
+
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFileSelect);
+            toggleRotationButton.addEventListener('click', () => {
+                isRotating = !isRotating;
+                toggleRotationButton.textContent = isRotating ? 'Stop Rotation' : 'Start Rotation';
+                toggleRotationButton.classList.toggle('stopped', !isRotating);
+            });
+            frequencyControlCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateFrequencyControl);
+            });
+
+            // Add event listener for the new button
+            unselectAllButton.addEventListener('click', () => {
+                frequencyControlCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                updateFrequencyControl(); // Update the controls after unchecking
+            });
+
+            const resumeAudio = () => {
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log("AudioContext resumed successfully");
+                    }).catch(err => {
+                        console.error("Failed to resume AudioContext:", err);
+                    });
+                }
+            };
+
+            // Multiple triggers for resuming AudioContext
+            ['click', 'touchstart', 'mousedown'].forEach(event => {
+                document.addEventListener(event, resumeAudio);
+            });
+            audioPlayer.addEventListener('play', resumeAudio);
+            audioPlayer.addEventListener('loadeddata', () => {
+                console.log("Audio data loaded");
+                resumeAudio();
+            });
+        }
+
+        function updateFrequencyControl() {
+            if (!audioContext || !humanFilter || !higherHumanFilter || !presentsFilter || !spliceFilter || !remainderFilter || !remainingFilter) return;
+
+            activeControls.clear();
+            frequencyControlCheckboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    activeControls.add(checkbox.value);
+                }
+            });
+
+            // Human voice filter (100Hz - 400Hz)
+            if (activeControls.has('mute_human')) {
+                humanFilter.type = 'notch';
+                humanFilter.frequency.setValueAtTime(Math.sqrt(HUMAN_VOICE_MIN_HZ * HUMAN_VOICE_MAX_HZ), audioContext.currentTime);
+                humanFilter.Q.setValueAtTime(1.0, audioContext.currentTime);
+            } else {
+                humanFilter.type = 'allpass';
+                humanFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                humanFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+
+            // Higher human voice filter (800Hz - 1500Hz)
+            if (activeControls.has('mute_higher_human')) {
+                higherHumanFilter.type = 'notch';
+                higherHumanFilter.frequency.setValueAtTime(Math.sqrt(HIGHER_HUMAN_VOICE_MIN_HZ * HIGHER_HUMAN_VOICE_MAX_HZ), audioContext.currentTime);
+                higherHumanFilter.Q.setValueAtTime(1.5, audioContext.currentTime);
+            } else {
+                higherHumanFilter.type = 'allpass';
+                higherHumanFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                higherHumanFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+
+            // Presents filter (1500Hz - 5000Hz)
+            if (activeControls.has('mute_presents')) {
+                presentsFilter.type = 'notch';
+                presentsFilter.frequency.setValueAtTime(Math.sqrt(PRESENTS_MIN_HZ * PRESENTS_MAX_HZ), audioContext.currentTime);
+                presentsFilter.Q.setValueAtTime(0.7, audioContext.currentTime);
+            } else {
+                presentsFilter.type = 'allpass';
+                presentsFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                presentsFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+
+            // Splice filter (5kHz - 8kHz) - NEW
+            if (activeControls.has('mute_5k_8k')) {
+                spliceFilter.type = 'notch';
+                spliceFilter.frequency.setValueAtTime(Math.sqrt(SPLICE_MIN_HZ * SPLICE_MAX_HZ), audioContext.currentTime);
+                spliceFilter.Q.setValueAtTime(1.0, audioContext.currentTime); // Adjust Q as needed
+            } else {
+                spliceFilter.type = 'allpass';
+                spliceFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                spliceFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+
+            // Remainder filter (8kHz - 12kHz)
+            if (activeControls.has('mute_remainder')) {
+                remainderFilter.type = 'notch';
+                remainderFilter.frequency.setValueAtTime(Math.sqrt(REMAINDER_MIN_HZ * REMAINDER_MAX_HZ), audioContext.currentTime);
+                remainderFilter.Q.setValueAtTime(1.0, audioContext.currentTime);
+            } else {
+                remainderFilter.type = 'allpass';
+                remainderFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                remainderFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+
+            // Remaining filter (12kHz - 20kHz)
+            if (activeControls.has('mute_remaining')) {
+                remainingFilter.type = 'notch';
+                remainingFilter.frequency.setValueAtTime(Math.sqrt(REMAINING_MIN_HZ * REMAINING_MAX_HZ), audioContext.currentTime);
+                remainingFilter.Q.setValueAtTime(1.0, audioContext.currentTime);
+            } else {
+                remainingFilter.type = 'allpass';
+                remainingFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                remainingFilter.Q.setValueAtTime(1, audioContext.currentTime);
+            }
+        }
+
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) {
+                console.warn("No file selected");
+                return;
+            }
+            const file = files[0];
+            if (!file.type.startsWith('audio/')) {
+                alert("Please select an audio file (MP3, WAV, or OGG).");
+                return;
+            }
+
+            // Clean up previous source
+            if (source) {
+                try {
+                    source.disconnect();
+                    source = null;
+                } catch (e) {
+                    console.warn("Error disconnecting previous source:", e);
+                }
+                 // Also disconnect filters to be safe
+                 try { humanFilter.disconnect(); } catch (e) {}
+                 try { higherHumanFilter.disconnect(); } catch (e) {}
+                 try { presentsFilter.disconnect(); } catch (e) {}
+                 try { spliceFilter.disconnect(); } catch (e) {}
+                 try { remainderFilter.disconnect(); } catch (e) {}
+                 try { remainingFilter.disconnect(); } catch (e) {}
+            }
+
+            // Revoke previous object URL
+            if (audioPlayer.currentSrc && audioPlayer.currentSrc.startsWith('blob:')) {
+                URL.revokeObjectURL(audioPlayer.currentSrc);
+            }
+
+            // Set new audio source
+            const objectURL = URL.createObjectURL(file);
+            audioPlayer.src = objectURL;
+            audioPlayer.load();
+            console.log("Audio file loaded:", file.name);
+
+            // Resume AudioContext
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log("AudioContext resumed on file select");
+                }).catch(err => {
+                    console.error("Error resuming AudioContext on file select:", err);
+                    alert("Please interact with the page (e.g., click or tap) to enable audio playback.");
+                });
+            }
+
+            // Wait for audio to be ready before connecting
+            audioPlayer.oncanplay = () => {
+                if (!source) {
+                    try {
+                        source = audioContext.createMediaElementSource(audioPlayer);
+                        // Chain the filters and analyser - UPDATED CHAIN
+                        source.connect(humanFilter);
+                        humanFilter.connect(higherHumanFilter);
+                        higherHumanFilter.connect(presentsFilter);
+                        presentsFilter.connect(spliceFilter); // Added spliceFilter connection
+                        spliceFilter.connect(remainderFilter); // Connect spliceFilter to remainderFilter
+                        remainderFilter.connect(remainingFilter);
+                        remainingFilter.connect(analyser);
+                        remainingFilter.connect(audioContext.destination);
+                        console.log("Audio source connected successfully");
+                    } catch (e) {
+                        console.error("Error connecting audio source:", e);
+                        // Attempt to disconnect if connection failed midway
+                        if (source) { try { source.disconnect(); } catch (ex) {} source = null; }
+                         try { humanFilter.disconnect(); } catch (ex) {}
+                         try { higherHumanFilter.disconnect(); } catch (ex) {}
+                         try { presentsFilter.disconnect(); } catch (ex) {}
+                         try { spliceFilter.disconnect(); } catch (ex) {}
+                         try { remainderFilter.disconnect(); } catch (ex) {}
+                         try { remainingFilter.disconnect(); } catch (ex) {}
+                        alert("Failed to connect audio. Please try another file or reload the page.");
+                    }
+                }
+            };
+
+
+            // Clean up on end
+            audioPlayer.onended = () => {
+                if (audioPlayer.currentSrc && audioPlayer.currentSrc.startsWith('blob:')) {
+                    URL.revokeObjectURL(audioPlayer.currentSrc);
+                    audioPlayer.src = '';
+                    console.log("Audio playback ended, URL revoked");
+                }
+            };
+        }
+
+        function onWindowResize() {
+            if (!container || !renderer || !camera) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            if (width === 0 || height === 0) return;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (controls) controls.update();
+            const rotationSpeed = 0.003;
+            if (isRotating && axisLinesGroup && axisLabelsGroup && points) {
+                axisLinesGroup.rotation.y += rotationSpeed;
+                axisLabelsGroup.rotation.y += rotationSpeed;
+                points.rotation.y += rotationSpeed;
+            }
+            if (analyser && frequencyData && points && points.geometry && audioContext) {
+                analyser.getByteFrequencyData(frequencyData);
+                const positionAttribute = points.geometry.attributes.position;
+                const colorAttribute = points.geometry.attributes.color;
+                const numBins = analyser.frequencyBinCount;
+                if (positionAttribute.count !== numBins) {
+                    console.warn(`Resizing geometry from ${positionAttribute.count} to ${numBins} points.`);
+                    const positions = new Float32Array(numBins * 3);
+                    const colors = new Float32Array(numBins * 3);
+                    points.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+                    points.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+                    points.geometry.computeBoundingSphere();
+                    return;
+                }
+
+                const halfAxis = AXIS_LENGTH / 2;
+                const sampleRate = audioContext.sampleRate;
+                const maxFreq = 20000;
+                const freqPerBin = sampleRate / (2 * numBins);
+                const minLogFreq = Math.log10(20);
+                const maxLogFreq = Math.log10(maxFreq);
+                const logRange = maxLogFreq - minLogFreq;
+                const baseZ = halfAxis * 0.1;
+                const tempColor = new THREE.Color();
+
+                for (let i = 0; i < numBins; i++) {
+                    const freqHz = i * freqPerBin;
+                    let amplitude = frequencyData[i];
+
+                    // Define frequency ranges
+                    const isInHumanRange = (freqHz >= HUMAN_VOICE_MIN_HZ && freqHz <= HUMAN_VOICE_MAX_HZ);
+                    const isInHigherHumanRange = (freqHz >= HIGHER_HUMAN_VOICE_MIN_HZ && freqHz <= HIGHER_HUMAN_VOICE_MAX_HZ);
+                    const isInPresentsRange = (freqHz >= PRESENTS_MIN_HZ && freqHz <= PRESENTS_MAX_HZ);
+                    const isInSpliceRange = (freqHz >= SPLICE_MIN_HZ && freqHz <= SPLICE_MAX_HZ); // New range check
+                    const isInRemainderRange = (freqHz >= REMAINDER_MIN_HZ && freqHz <= REMAINDER_MAX_HZ);
+                    const isInRemainingRange = (freqHz >= REMAINING_MIN_HZ && freqHz <= REMAINING_MAX_HZ);
+
+                    // Check if frequency falls within any *muted* range and set visual amplitude to 0
+                    if ((activeControls.has('mute_human') && isInHumanRange) ||
+                        (activeControls.has('mute_higher_human') && isInHigherHumanRange) ||
+                        (activeControls.has('mute_presents') && isInPresentsRange) ||
+                        (activeControls.has('mute_5k_8k') && isInSpliceRange) || // Added check for new mute
+                        (activeControls.has('mute_remainder') && isInRemainderRange) ||
+                        (activeControls.has('mute_remaining') && isInRemainingRange))
+                    {
+                        amplitude = 0; // Force visual amplitude to 0 for muted ranges
+                    }
+
+                    const amplitudeNormalized = amplitude / 255.0;
+                    let xPos;
+                    if (freqHz < 20 || logRange <= 0) {
+                        xPos = -halfAxis;
+                    } else {
+                        const logFreq = Math.log10(freqHz);
+                        xPos = (((logFreq - minLogFreq) / logRange) * AXIS_LENGTH) - halfAxis;
+                        xPos = Math.max(-halfAxis, Math.min(halfAxis, xPos));
+                    }
+
+                    const yPos = amplitudeNormalized * AXIS_LENGTH;
+                    const zPos = baseZ - (amplitudeNormalized * halfAxis * Z_AMPLITUDE_SCALING);
+
+                    positionAttribute.setXYZ(i, xPos, yPos, zPos);
+
+                    // Determine color based on frequency range and highlight settings
+                    // No highlight check for isInSpliceRange as it's only a mute function
+                    if (activeControls.has('highlight_remaining') && isInRemainingRange) {
+                        colorAttribute.setXYZ(i, REMAINING_HIGHLIGHT_COLOR.r, REMAINING_HIGHLIGHT_COLOR.g, REMAINING_HIGHLIGHT_COLOR.b);
+                    } else if (activeControls.has('highlight_remainder') && isInRemainderRange) {
+                        colorAttribute.setXYZ(i, REMAINDER_HIGHLIGHT_COLOR.r, REMAINDER_HIGHLIGHT_COLOR.g, REMAINDER_HIGHLIGHT_COLOR.b);
+                    } else if (activeControls.has('highlight_presents') && isInPresentsRange) {
+                        colorAttribute.setXYZ(i, PRESENTS_HIGHLIGHT_COLOR.r, PRESENTS_HIGHLIGHT_COLOR.g, PRESENTS_HIGHLIGHT_COLOR.b);
+                    } else if (activeControls.has('highlight_higher_human') && isInHigherHumanRange) {
+                        colorAttribute.setXYZ(i, HIGHER_HUMAN_HIGHLIGHT_COLOR.r, HIGHER_HUMAN_HIGHLIGHT_COLOR.g, HIGHER_HUMAN_HIGHLIGHT_COLOR.b);
+                    } else if (activeControls.has('highlight_human') && isInHumanRange) {
+                        colorAttribute.setXYZ(i, HUMAN_HIGHLIGHT_COLOR.r, HUMAN_HIGHLIGHT_COLOR.g, HUMAN_HIGHLIGHT_COLOR.b);
+                    } else {
+                        // Default color based on amplitude
+                        const hue = 0.7 - (amplitudeNormalized * 0.7);
+                        const saturation = 0.6 + amplitudeNormalized * 0.4;
+                        const lightness = 0.3 + amplitudeNormalized * 0.5;
+                        tempColor.setHSL(hue, saturation, lightness);
+                        colorAttribute.setXYZ(i, tempColor.r, tempColor.g, tempColor.b);
+                    }
+                }
+                positionAttribute.needsUpdate = true;
+                colorAttribute.needsUpdate = true;
+
+                if (!points.geometry.boundingSphere) {
+                    points.geometry.computeBoundingSphere();
+                }
+            }
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
