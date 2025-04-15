@@ -1,4 +1,4 @@
-# Amplitude Depth 3D Audio Visualizer
+# MP3 Equalizer Visualizer
 
 A web-based audio player that visualizes music in a dynamic 3D point cloud. It maps audio frequency, amplitude, and perceived loudness (depth) onto a 3D space, offering interactive controls for both the audio output and the visual representation.
 
